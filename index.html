@@ -1,172 +1,83 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>BRAVE RUNNER</title>
+  <link rel="stylesheet" href="style.css">
 
-/* ===== DESIGN TOKENS ===== */
-:root {
-  --bg-base:      #0d0d1a;
-  --bg-panel:     #1a1a2e;
-  --bg-deep:      #0d0d10;
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
 
-  --accent-gold:  #f5c518;
-  --accent-gold-dark: #8a6e0a;
-  --accent-purple:#7b5ea7;
-  --accent-purple-dark: #3a2a6e;
+  <!-- ===== タイトル画面 ===== -->
+  <div id="screen-title" class="screen active"></div>
 
-  --success:      #4caf50;
-  --danger:       #e53935;
-  --danger-dark:  #8a1a1a;
+  <!-- ===== ロビー画面 ===== -->
+  <div id="screen-lobby" class="screen"></div>
 
-  --text-primary: #e8e8f0;
-  --text-muted:   #7a7a9a;
+  <!-- ===== ゲーム画面 ===== -->
+  <div id="screen-game" class="screen">
+    <canvas id="gameCanvas"></canvas>
+  </div>
 
-  --border-subtle: #2a2a4e;
+  <!-- ===== ゲームオーバー画面 ===== -->
+  <div id="screen-gameover" class="screen"></div>
 
-  --font-pixel: 'Press Start 2P', monospace;
-  --font-body:  'M PLUS Rounded 1c', sans-serif;
+  <!-- ===== ガチャ画面 ===== -->
+  <div id="screen-gacha" class="screen"></div>
 
-  --grade-gold-bg:    #8a6e0a;
-  --grade-gold-fg:    #f5c518;
-  --grade-silver-bg:  #3a3a4e;
-  --grade-silver-fg:  #c0c0c0;
-  --grade-rainbow-bg: #1a0a2e;
-}
+  <!-- ===== ランキング画面 ===== -->
+  <div id="screen-ranking" class="screen"></div>
 
-/* ===== RESET ===== */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  <!-- ===== 横向き警告オーバーレイ（スマホのみ） ===== -->
+  <div id="landscape-overlay" style="
+    display:none;
+    position:fixed;inset:0;
+    background:#0d0d1a;
+    z-index:9999;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:20px;
+    text-align:center;
+    padding:40px;
+  ">
+    <div style="font-size:48px">📱</div>
+    <div style="font-family:'Press Start 2P',monospace;font-size:11px;color:#f5c518;line-height:2">
+      縦向きで<br>プレイしてください
+    </div>
+  </div>
+  <style>
+    @media (max-width: 768px) and (orientation: landscape) {
+      #landscape-overlay { display: flex !important; }
+    }
+  </style>
 
-html, body {
-  width: 100%; height: 100%;
-  background: var(--bg-base);
-  color: var(--text-primary);
-  font-family: var(--font-body);
-  font-size: 16px;
-  line-height: 1.5;
-  overflow: hidden;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
+  <!-- ===== モジュール ===== -->
+  <script type="module">
+    import { initAuth }    from './auth/googleAuth.js';
+    import { renderTitle } from './ui/title.js';
+    import { renderLobby } from './ui/lobby.js';
+    import { renderGacha } from './ui/gacha.js';
+    import { renderRanking } from './ui/ranking.js';
+    import { renderGameover } from './ui/gameover.js';
+    import { startGame }   from './game/main.js';
+    import { router }      from './ui/router.js';
 
-/* ===== SCREEN ROUTER ===== */
-.screen {
-  display: none;
-  width: 100%; height: 100%;
-  position: absolute;
-  top: 0; left: 0;
-}
-.screen.active { display: flex; }
+    // ルーターにUI描画関数を登録
+    router.register('title',    renderTitle);
+    router.register('lobby',    renderLobby);
+    router.register('gacha',    renderGacha);
+    router.register('ranking',  renderRanking);
+    router.register('gameover', renderGameover);
+    router.register('game',     startGame);
 
-/* ===== PIXEL FONT UTIL ===== */
-.font-pixel { font-family: var(--font-pixel); }
-
-/* ===== BUTTON BASE ===== */
-button { cursor: pointer; font-family: var(--font-body); border: none; outline: none; }
-button:active { transform: translateY(1px); }
-
-/* ===== GRADE BADGES ===== */
-.grade-badge {
-  display: inline-block;
-  font-family: var(--font-pixel);
-  font-size: 8px;
-  padding: 3px 8px;
-  border-radius: 2px;
-}
-.grade-badge.silver  { background: var(--grade-silver-bg); color: var(--grade-silver-fg); }
-.grade-badge.gold    { background: var(--grade-gold-bg);   color: var(--grade-gold-fg); }
-.grade-badge.rainbow {
-  background: var(--grade-rainbow-bg);
-  color: #fff;
-  border: 1px solid transparent;
-  background-clip: padding-box;
-  position: relative;
-  animation: rainbowText 2s linear infinite;
-}
-@keyframes rainbowText {
-  0%   { color: #ff6b6b; }
-  16%  { color: #ffd93d; }
-  33%  { color: #6bcb77; }
-  50%  { color: #4fc3f7; }
-  66%  { color: #c77dff; }
-  83%  { color: #ff9a9e; }
-  100% { color: #ff6b6b; }
-}
-
-/* ===== SKILL SLOT ===== */
-.skill-slot {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--bg-base);
-  border: 2px solid var(--border-subtle);
-  border-radius: 3px;
-  padding: 8px 10px;
-  transition: border-color 0.15s;
-}
-.skill-slot:hover { border-color: var(--accent-purple); }
-.skill-slot .icon {
-  width: 36px; height: 36px;
-  background: var(--border-subtle);
-  border-radius: 3px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px;
-  flex-shrink: 0;
-  image-rendering: pixelated;
-}
-.skill-slot .info { flex: 1; min-width: 0; }
-.skill-slot .name { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.skill-slot .evo  { font-size: 10px; color: var(--success); margin-top: 2px; }
-
-/* ===== PIXEL BOX ===== */
-.pixel-box {
-  background: var(--bg-panel);
-  border: 3px solid var(--accent-purple);
-  border-radius: 2px;
-}
-
-/* ===== SCROLLBAR ===== */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: var(--bg-panel); }
-::-webkit-scrollbar-thumb { background: var(--accent-purple); border-radius: 2px; }
-
-/* ===== GAME CANVAS（縦横どちらでもフル表示） ===== */
-#screen-game {
-  position: relative;
-}
-#gameCanvas {
-  display: block;
-  width: 100vw;
-  height: 100vh;
-  position: absolute;
-  top: 0; left: 0;
-}
-
-/* ===== ANIMATIONS ===== */
-@keyframes fadeIn {
-  from { opacity: 0; } to { opacity: 1; }
-}
-@keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to   { transform: translateY(0); opacity: 1; }
-}
-@keyframes bounce {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-10px); }
-}
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50%       { transform: scale(1.06); }
-}
-@keyframes flicker {
-  0%, 94%, 100% { opacity: 1; }
-  95% { opacity: 0.5; }
-  97% { opacity: 0.7; }
-}
-@keyframes popUp {
-  0%   { transform: translateY(0);    opacity: 1; }
-  100% { transform: translateY(-36px); opacity: 0; }
-}
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  20%       { transform: translateX(-6px); }
-  40%       { transform: translateX(6px); }
-  60%       { transform: translateX(-4px); }
-  80%       { transform: translateX(4px); }
-}
+    // 認証初期化 → タイトル画面へ
+    await initAuth();
+    router.go('title');
+  </script>
+</body>
+</html>
