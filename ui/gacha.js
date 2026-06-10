@@ -267,7 +267,7 @@ function _onPull() {
 
   setTimeout(() => {
     const g     = _pendingSkill.grade;
-    const cls   = g >= 80 ? 'gold' : g >= 50 ? 'silver' : 'bronze';
+    const cls   = g >= 85 ? 'rainbow' : g >= 50 ? 'gold' : 'silver';
     const bord  = g >= 80 ? '#f5c518' : g >= 50 ? '#aaa' : '#cd7f32';
     const bgCol = g >= 80 ? 'rgba(245,197,24,0.08)' : 'rgba(50,50,50,0.3)';
 
@@ -297,10 +297,11 @@ function _renderEquipPreview() {
         <div class="s-name" style="color:var(--text-muted)">空きスロット</div>
       </div>`;
     }
-    const gc = slot.grade >= 80 ? 'gold' : slot.grade >= 50 ? 'silver' : 'bronze';
+    const gc = slot.grade >= 85 ? 'rainbow' : slot.grade >= 50 ? 'gold' : 'silver';
     return `<div class="equip-slot-item" data-slot="${i}">
       <div class="s-icon">${slot.icon || '?'}</div>
       <div class="s-name">${slot.name}</div>
+      <div class="s-type" style="font-size:9px;color:var(--text-muted);margin-top:2px">${_typeLabel(slot.type)}</div>
       <span class="grade-badge ${gc}" style="font-size:8px">${slot.grade}</span>
     </div>`;
   }).join('');
@@ -354,14 +355,6 @@ async function _doEquip(slotIdx) {
   const user = getCurrentUser();
   if (user) await saveEquip(user.token, equip).catch(() => {});
 
-  // 装備済みメッセージ
-  const resultEl = document.getElementById('gacha-result');
-  if (resultEl) {
-    resultEl.innerHTML += `
-      <div style="margin-top:12px;font-size:12px;color:var(--success);font-weight:700">
-        ✅ スロット ${slotIdx + 1} に装備しました！
-      </div>`;
-  }
 }
 
 function _typeLabel(type) {
