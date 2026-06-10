@@ -10,7 +10,7 @@ const ENEMY_TYPES = [
     baseHp: 5,  baseSpeed: 1.5, score: 200, jumpable: false },
   { id: 'bat',      name: 'コウモリ', color: '#7b5ea7', w: 24, h: 20,
     baseHp: 1,  baseSpeed: 3.0, score: 150, jumpable: false,
-    floatY: -60 }, // 地面より上を飛ぶ
+    floatY: -30 }, // ジャンプ発射体が届く高さ・地面では届かない
   { id: 'skeleton', name: 'スケルトン',color: '#e0e0e0', w: 28, h: 34,
     baseHp: 3,  baseSpeed: 2.5, score: 180, jumpable: true  },
   { id: 'dragon',   name: 'ドラゴン', color: '#e53935', w: 44, h: 40,
