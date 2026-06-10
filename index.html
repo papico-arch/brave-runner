@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>BRAVE RUNNER</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+  <!-- 縦画面警告オーバーレイ（ゲーム中のみ表示） -->
+  <div id="orientation-overlay">
+    <div class="icon">📱</div>
+    <p>PLEASE ROTATE<br>YOUR DEVICE<br>デバイスを横向きに<br>してください</p>
+  </div>
+
+  <!-- ===== タイトル画面 ===== -->
+  <div id="screen-title" class="screen active"></div>
+
+  <!-- ===== ロビー画面 ===== -->
+  <div id="screen-lobby" class="screen"></div>
+
+  <!-- ===== ゲーム画面 ===== -->
+  <div id="screen-game" class="screen">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <!-- ===== ゲームオーバー画面 ===== -->
+  <div id="screen-gameover" class="screen"></div>
+
+  <!-- ===== ガチャ画面 ===== -->
+  <div id="screen-gacha" class="screen"></div>
+
+  <!-- ===== ランキング画面 ===== -->
+  <div id="screen-ranking" class="screen"></div>
+
+  <!-- ===== モジュール ===== -->
+  <script type="module">
+    import { initAuth }    from './auth/googleAuth.js';
+    import { renderTitle } from './ui/title.js';
+    import { renderLobby } from './ui/lobby.js';
+    import { renderGacha } from './ui/gacha.js';
+    import { renderRanking } from './ui/ranking.js';
+    import { renderGameover } from './ui/gameover.js';
+    import { startGame }   from './game/main.js';
+    import { router }      from './ui/router.js';
+
+    // ルーターにUI描画関数を登録
+    router.register('title',    renderTitle);
+    router.register('lobby',    renderLobby);
+    router.register('gacha',    renderGacha);
+    router.register('ranking',  renderRanking);
+    router.register('gameover', renderGameover);
+    router.register('game',     startGame);
+
+    // 認証初期化 → タイトル画面へ
+    await initAuth();
+    router.go('title');
+  </script>
+</body>
+</html>
