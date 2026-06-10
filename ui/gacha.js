@@ -298,7 +298,8 @@ function _renderEquipPreview() {
       </div>`;
     }
     const gc = slot.grade >= 85 ? 'rainbow' : slot.grade >= 50 ? 'gold' : 'silver';
-    return `<div class="equip-slot-item" data-slot="${i}">
+    const gcBorder = slot.grade >= 85 ? 'var(--accent-purple)' : slot.grade >= 50 ? 'var(--accent-gold)' : 'var(--grade-silver-fg)';
+    return `<div class="equip-slot-item" data-slot="${i}" style="border-color:${gcBorder}">
       <div class="s-icon">${slot.icon || '?'}</div>
       <div class="s-name">${slot.name}</div>
       <div class="s-type" style="font-size:9px;color:var(--text-muted);margin-top:2px">${_typeLabel(slot.type)}</div>
