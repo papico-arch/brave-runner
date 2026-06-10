@@ -23,12 +23,11 @@
   --font-pixel: 'Press Start 2P', monospace;
   --font-body:  'M PLUS Rounded 1c', sans-serif;
 
-  --grade-gold-bg:   #8a6e0a;
-  --grade-gold-fg:   #f5c518;
-  --grade-silver-bg: #3a3a4e;
-  --grade-silver-fg: #aaa;
-  --grade-bronze-bg: #5a3a1a;
-  --grade-bronze-fg: #cd7f32;
+  --grade-gold-bg:    #8a6e0a;
+  --grade-gold-fg:    #f5c518;
+  --grade-silver-bg:  #3a3a4e;
+  --grade-silver-fg:  #c0c0c0;
+  --grade-rainbow-bg: #1a0a2e;
 }
 
 /* ===== RESET ===== */
@@ -70,9 +69,25 @@ button:active { transform: translateY(1px); }
   padding: 3px 8px;
   border-radius: 2px;
 }
-.grade-badge.gold   { background: var(--grade-gold-bg);   color: var(--grade-gold-fg); }
-.grade-badge.silver { background: var(--grade-silver-bg); color: var(--grade-silver-fg); }
-.grade-badge.bronze { background: var(--grade-bronze-bg); color: var(--grade-bronze-fg); }
+.grade-badge.silver  { background: var(--grade-silver-bg); color: var(--grade-silver-fg); }
+.grade-badge.gold    { background: var(--grade-gold-bg);   color: var(--grade-gold-fg); }
+.grade-badge.rainbow {
+  background: var(--grade-rainbow-bg);
+  color: #fff;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+  animation: rainbowText 2s linear infinite;
+}
+@keyframes rainbowText {
+  0%   { color: #ff6b6b; }
+  16%  { color: #ffd93d; }
+  33%  { color: #6bcb77; }
+  50%  { color: #4fc3f7; }
+  66%  { color: #c77dff; }
+  83%  { color: #ff9a9e; }
+  100% { color: #ff6b6b; }
+}
 
 /* ===== SKILL SLOT ===== */
 .skill-slot {
@@ -111,34 +126,16 @@ button:active { transform: translateY(1px); }
 ::-webkit-scrollbar-track { background: var(--bg-panel); }
 ::-webkit-scrollbar-thumb { background: var(--accent-purple); border-radius: 2px; }
 
-/* ===== ORIENTATION OVERLAY ===== */
-#orientation-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: var(--bg-base);
-  z-index: 9999;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  text-align: center;
-  padding: 24px;
+/* ===== GAME CANVAS（縦横どちらでもフル表示） ===== */
+#screen-game {
+  position: relative;
 }
-#orientation-overlay .icon { font-size: 48px; animation: rotateHint 2s ease-in-out infinite; }
-@keyframes rotateHint {
-  0%, 100% { transform: rotate(0deg); }
-  50%       { transform: rotate(90deg); }
-}
-#orientation-overlay p {
-  font-family: var(--font-pixel);
-  font-size: 10px;
-  color: var(--text-muted);
-  line-height: 2;
-}
-
-@media (max-width: 600px) and (orientation: portrait) {
-  #orientation-overlay.game-active { display: flex; }
+#gameCanvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  position: absolute;
+  top: 0; left: 0;
 }
 
 /* ===== ANIMATIONS ===== */
