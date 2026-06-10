@@ -11,8 +11,8 @@ import { getCurrentUser }                                            from '../au
 import { saveScore }                                                 from '../api/gasClient.js';
 import { getEquip }                                                  from '../ui/lobby.js';
 
-let _raf      = null;
-let _state    = null;
+let _raf   = null;
+let _state = null;
 
 // ---- 公開エントリ ----
 
@@ -29,28 +29,31 @@ export function startGame() {
 // ---- 初期化 ----
 
 function _initState(canvas) {
-  const equip = getEquip(); // ロビーから装備を取得
+  const equip = getEquip();
   return {
     canvas,
-    player:       createPlayer(canvas),
-    enemies:      [],
-    projectiles:  [],
-    particles:    [],
-    scorePopups:  [],
-    equip,        // [{ id, grade, evo, kills }, ...]
-    skillTimers:  equip.map(() => 0),
-    score:        0,
-    distance:     0,
-    kills:        0,
-    avoids:       0,
-    difficulty:   0,
-    spawnTimer:   0,
-    elapsed:      0,
-    lastTime:     performance.now(),
-    over:         false,
-    avoidTracked: new Set(), // 回避済み敵IDセット
+    player:         createPlayer(canvas),
+    enemies:        [],
+    projectiles:    [],
+    particles:      [],
+    scorePopups:    [],
+    pits:           [],       // 落とし穴リスト
+    pitSpawnTimer:  0,
+    equip,
+    skillTimers:    equip.map(() => 0),
+    score:          0,
+    distance:       0,
+    kills:          0,
+    avoids:         0,
+    difficulty:     0,
+    spawnTimer:     0,
+    elapsed:        0,
+    lastTime:       performance.now(),
+    over:           false,
+    overReason:     '',       // 'enemy' | 'pit'
+    avoidTracked:   new Set(),
     enemyIdCounter: 0,
-    bgOffset:     0,
+    bgOffset:       0,
   };
 }
 
@@ -58,7 +61,7 @@ function _initState(canvas) {
 
 function _loop(canvas, s) {
   const now = performance.now();
-  const dt  = Math.min((now - s.lastTime) / 1000, 0.05); // 最大50ms
+  const dt  = Math.min((now - s.lastTime) / 1000, 0.05);
   s.lastTime = now;
 
   if (!s.over) {
@@ -74,46 +77,77 @@ function _loop(canvas, s) {
 // ---- 更新 ----
 
 function _update(s, dt) {
-  s.elapsed    += dt;
-  s.distance   += dt * 60;
-  s.difficulty  = Math.floor(s.elapsed / 10); // 10秒ごとに難易度+1
+  s.elapsed   += dt;
+  s.distance  += dt * 60;
+  s.difficulty = Math.floor(s.elapsed / 10);
 
-  // プレイヤー
-  updatePlayer(s.player);
+  // 落とし穴：プレイヤー直下に穴があるか
+  const pitUnder = _isPitUnder(s);
+  const groundY  = pitUnder ? s.canvas.height + 100 : s.player.groundY;
+
+  updatePlayer(s.player, groundY);
+
+  // 落下死
+  if (s.player.y > s.canvas.height + 20) {
+    s.over       = true;
+    s.overReason = 'pit';
+    return;
+  }
 
   // 敵スポーン
   s.spawnTimer += dt * 1000;
-  const interval = getSpawnInterval(s.difficulty);
-  if (s.spawnTimer >= interval) {
+  if (s.spawnTimer >= getSpawnInterval(s.difficulty)) {
     s.spawnTimer = 0;
     const e = createEnemy(s.canvas, s.difficulty);
     e._id = s.enemyIdCounter++;
     s.enemies.push(e);
   }
 
-  // 敵移動
+  // 落とし穴スポーン（スコア1万点以上）
+  _updatePits(s, dt);
+
   updateEnemies(s.enemies, dt);
-
-  // 自動攻撃
   _updateSkills(s, dt);
-
-  // 発射体更新
   _updateProjectiles(s, dt);
-
-  // 衝突判定
   _checkCollisions(s);
-
-  // 回避スコア
   _checkAvoids(s);
-
-  // パーティクル
   _updateParticles(s, dt);
 
-  // スコアポップアップ
   s.scorePopups = s.scorePopups.filter(p => { p.life -= dt; return p.life > 0; });
+  s.enemies     = s.enemies.filter(e => !e.offscreen && !e.dead);
+}
 
-  // 画外の敵を除去
-  s.enemies = s.enemies.filter(e => !e.offscreen && !e.dead);
+// ---- 落とし穴 ----
+
+function _updatePits(s, dt) {
+  // スコア10000未満は穴なし
+  if (s.score < 10000) return;
+
+  // 難易度：スコア1万ごとに穴が広く・頻繁になる
+  const pitLevel   = Math.floor(s.score / 10000); // 1〜
+  const pitW       = Math.min(50 + pitLevel * 15, 160); // 最大160px
+  const pitInterval= Math.max(4000 - pitLevel * 300, 1500); // 最短1.5秒
+
+  s.pitSpawnTimer = (s.pitSpawnTimer || 0) + dt * 1000;
+  if (s.pitSpawnTimer >= pitInterval) {
+    s.pitSpawnTimer = 0;
+    s.pits.push({
+      x:    s.canvas.width + 10,
+      w:    pitW,
+      speed: 2.5 + s.difficulty * 0.03,
+    });
+  }
+
+  // 穴を左へ移動
+  for (const pit of s.pits) {
+    pit.x -= pit.speed * 60 * dt;
+  }
+  s.pits = s.pits.filter(pit => pit.x + pit.w > -20);
+}
+
+function _isPitUnder(s) {
+  const px = s.player.x;
+  return s.pits.some(pit => px + 10 > pit.x && px - 10 < pit.x + pit.w);
 }
 
 // ---- スキル自動発射 ----
@@ -123,7 +157,6 @@ function _updateSkills(s, dt) {
     if (!slot) return;
     const master = getSkillById(slot.id);
     if (!master) return;
-
     s.skillTimers[i] += dt * 1000;
     if (s.skillTimers[i] >= master.fireRate) {
       s.skillTimers[i] = 0;
@@ -133,29 +166,34 @@ function _updateSkills(s, dt) {
 }
 
 function _fireSkill(s, slot, master) {
-  const p = s.player;
+  const p   = s.player;
   const dmg = calcDamage(slot);
 
   if (master.type === 'area') {
-    // 範囲攻撃：前方の敵を全てHIT
-    s.enemies.forEach(e => {
-      if (Math.abs(e.x - p.x) < (master.radius || 60) && e.x > p.x) {
-        _hitEnemy(s, e, dmg, slot);
-      }
-    });
-    _spawnParticles(s, p.x + 40, p.y - p.h / 2, master.color, 8);
-  } else {
-    // 発射体
+    // ③ 範囲攻撃：大きな発射体として飛ばし、当たるまで消えない
     s.projectiles.push({
-      x:     p.x + p.w / 2,
-      y:     p.y - p.h * 0.5,
-      w:     master.width,
-      h:     master.height,
-      vx:    master.type === 'rapid' ? 14 : 9,
+      x:       p.x + p.w / 2,
+      y:       p.y - p.h * 0.5,
+      w:       master.width  || 40,
+      h:       master.height || 24,
+      vx:      3.5,
       dmg,
-      color: master.color,
-      skillId: slot.id,
+      color:   master.color,
       slotRef: slot,
+      isArea:  true,
+      radius:  master.radius || 60,
+    });
+  } else {
+    s.projectiles.push({
+      x:       p.x + p.w / 2,
+      y:       p.y - p.h * 0.5,
+      w:       master.width,
+      h:       master.height,
+      vx:      master.type === 'rapid' ? 14 : 9,
+      dmg,
+      color:   master.color,
+      slotRef: slot,
+      isArea:  false,
     });
   }
 }
@@ -167,17 +205,26 @@ function _updateProjectiles(s, dt) {
     proj.x += proj.vx * dt * 60;
   }
 
-  // 敵ヒット判定
   const toRemove = new Set();
   for (let pi = 0; pi < s.projectiles.length; pi++) {
     const proj = s.projectiles[pi];
-    if (proj.x > s.canvas.width + 50) { toRemove.add(pi); continue; }
+    if (proj.x > s.canvas.width + 60) { toRemove.add(pi); continue; }
 
     const pb = { x: proj.x - proj.w/2, y: proj.y - proj.h/2, w: proj.w, h: proj.h };
     for (const e of s.enemies) {
       if (e.dead) continue;
       if (rectsOverlap(pb, getEnemyHitbox(e))) {
-        _hitEnemy(s, e, proj.dmg, proj.slotRef);
+        if (proj.isArea) {
+          // 爆発：範囲内の全敵にダメージ
+          for (const ae of s.enemies) {
+            if (!ae.dead && Math.abs(ae.x - proj.x) < (proj.radius || 60)) {
+              _hitEnemy(s, ae, proj.dmg, proj.slotRef);
+            }
+          }
+          _spawnParticles(s, proj.x, proj.y, proj.color, 14);
+        } else {
+          _hitEnemy(s, e, proj.dmg, proj.slotRef);
+        }
         toRemove.add(pi);
         break;
       }
@@ -202,14 +249,15 @@ function _hitEnemy(s, e, dmg, slotRef) {
   }
 }
 
-// ---- プレイヤー被弾判定（即死） ----
+// ---- 被弾判定 ----
 
 function _checkCollisions(s) {
   const phb = getHitbox(s.player);
   for (const e of s.enemies) {
     if (e.dead) continue;
     if (rectsOverlap(phb, getEnemyHitbox(e))) {
-      s.over = true;
+      s.over       = true;
+      s.overReason = 'enemy';
       return;
     }
   }
@@ -235,11 +283,11 @@ function _spawnParticles(s, x, y, color, count) {
   for (let i = 0; i < count; i++) {
     s.particles.push({
       x, y,
-      vx:    (Math.random() - 0.5) * 5,
-      vy:    (Math.random() - 0.5) * 5 - 2,
-      life:  0.5 + Math.random() * 0.3,
+      vx:   (Math.random() - 0.5) * 5,
+      vy:   (Math.random() - 0.5) * 5 - 2,
+      life: 0.5 + Math.random() * 0.3,
       color,
-      size:  2 + Math.random() * 3,
+      size: 2 + Math.random() * 3,
     });
   }
 }
@@ -270,17 +318,22 @@ function _draw(canvas, s) {
   // 発射体
   for (const proj of s.projectiles) {
     ctx.save();
-    ctx.fillStyle = proj.color;
+    ctx.fillStyle   = proj.color;
     ctx.shadowColor = proj.color;
-    ctx.shadowBlur  = 6;
-    ctx.fillRect(proj.x - proj.w/2, proj.y - proj.h/2, proj.w, proj.h);
+    ctx.shadowBlur  = proj.isArea ? 12 : 6;
+    ctx.globalAlpha = proj.isArea ? 0.85 : 1;
+    if (proj.isArea) {
+      // 範囲攻撃は丸い形
+      ctx.beginPath();
+      ctx.ellipse(proj.x, proj.y, proj.w / 2, proj.h / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillRect(proj.x - proj.w/2, proj.y - proj.h/2, proj.w, proj.h);
+    }
     ctx.restore();
   }
 
-  // 敵
   for (const e of s.enemies) drawEnemy(ctx, e);
-
-  // プレイヤー
   drawPlayer(ctx, s.player);
 
   // パーティクル
@@ -305,7 +358,6 @@ function _draw(canvas, s) {
 
   _drawHUD(ctx, canvas, s);
 
-  // ゲームオーバー暗転
   if (s.over) {
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -313,19 +365,16 @@ function _draw(canvas, s) {
 }
 
 function _drawBackground(ctx, canvas, s) {
-  // 空
   const grad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.8);
   grad.addColorStop(0, '#0d0d2e');
   grad.addColorStop(1, '#1a1a3e');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, canvas.width, canvas.height * 0.8);
 
-  // 遠景の木（視差スクロール）
   s.bgOffset = (s.bgOffset + 0.5) % canvas.width;
   ctx.font      = '24px serif';
   ctx.textAlign = 'center';
-  const treePositions = [0.1, 0.3, 0.55, 0.75, 0.95];
-  for (const pos of treePositions) {
+  for (const pos of [0.1, 0.3, 0.55, 0.75, 0.95]) {
     const tx = ((pos * canvas.width - s.bgOffset + canvas.width) % canvas.width);
     ctx.globalAlpha = 0.35;
     ctx.fillText('🌲', tx, canvas.height * 0.80);
@@ -333,17 +382,44 @@ function _drawBackground(ctx, canvas, s) {
   }
 }
 
-function _drawGround(ctx, canvas) {
+function _drawGround(ctx, canvas, s) {
   const gy = canvas.height * 0.80;
+  const W  = canvas.width;
+
+  // 落とし穴を除いた地面を描画
+  // まず地面全体を描いてから穴を「消す」
   ctx.fillStyle = '#2a3a2a';
-  ctx.fillRect(0, gy, canvas.width, canvas.height - gy);
-  // タイルライン
+  ctx.fillRect(0, gy, W, canvas.height - gy);
   ctx.fillStyle = '#3a5a3a';
-  ctx.fillRect(0, gy, canvas.width, 4);
-  // タイル縞
+  ctx.fillRect(0, gy, W, 4);
   ctx.fillStyle = '#4a7a4a';
-  for (let i = 0; i < canvas.width; i += 32) {
+  for (let i = 0; i < W; i += 32) {
     ctx.fillRect(i, gy, 16, 6);
+  }
+
+  // 穴を背景色で上書き（空洞に見せる）
+  for (const pit of s.pits) {
+    // 奈落の穴（暗い）
+    ctx.fillStyle = '#050508';
+    ctx.fillRect(pit.x, gy, pit.w, canvas.height - gy);
+    // 穴の縁（警告感）
+    ctx.fillStyle = '#e53935';
+    ctx.fillRect(pit.x, gy, 3, 8);
+    ctx.fillRect(pit.x + pit.w - 3, gy, 3, 8);
+  }
+
+  // 落とし穴警告アイコン（スコア10000以上になったら表示）
+  if (s.score >= 8000) {
+    for (const pit of s.pits) {
+      if (pit.x < W + 100 && pit.x > -50) {
+        ctx.save();
+        ctx.font      = '16px serif';
+        ctx.textAlign = 'center';
+        ctx.globalAlpha = 0.8;
+        ctx.fillText('⚠️', pit.x + pit.w / 2, gy - 10);
+        ctx.restore();
+      }
+    }
   }
 }
 
@@ -351,14 +427,12 @@ function _drawHUD(ctx, canvas, s) {
   const W = canvas.width;
   const H = canvas.height;
 
-  // 上部バー
   ctx.fillStyle = 'rgba(13,13,26,0.85)';
   ctx.fillRect(0, 0, W, 44);
   ctx.strokeStyle = '#2a2a4e';
   ctx.lineWidth   = 2;
   ctx.beginPath(); ctx.moveTo(0,44); ctx.lineTo(W,44); ctx.stroke();
 
-  // スコア（中央）
   ctx.save();
   ctx.font      = '16px "Press Start 2P", monospace';
   ctx.textAlign = 'center';
@@ -369,7 +443,6 @@ function _drawHUD(ctx, canvas, s) {
   ctx.fillText('SCORE', W / 2, 12);
   ctx.restore();
 
-  // 距離（右）
   ctx.save();
   ctx.font      = '9px "Press Start 2P", monospace';
   ctx.textAlign = 'right';
@@ -379,7 +452,6 @@ function _drawHUD(ctx, canvas, s) {
   ctx.fillText(`${Math.floor(s.distance)}m`, W - 12, 30);
   ctx.restore();
 
-  // 時間（左）
   const mm = String(Math.floor(s.elapsed / 60)).padStart(2, '0');
   const ss = String(Math.floor(s.elapsed % 60)).padStart(2, '0');
   ctx.save();
@@ -397,7 +469,7 @@ function _drawHUD(ctx, canvas, s) {
   ctx.strokeStyle = '#2a2a4e';
   ctx.beginPath(); ctx.moveTo(0, H-60); ctx.lineTo(W, H-60); ctx.stroke();
 
-  const slotW = 52;
+  const slotW  = 52;
   const startX = W / 2 - (s.equip.length * slotW) / 2;
   s.equip.forEach((slot, i) => {
     if (!slot) return;
@@ -405,15 +477,13 @@ function _drawHUD(ctx, canvas, s) {
     const sx = startX + i * slotW + 4;
     const sy = H - 54;
 
-    // スロット背景
-    ctx.fillStyle = '#1a1a2e';
+    ctx.fillStyle   = '#1a1a2e';
     ctx.strokeStyle = '#7b5ea7';
-    ctx.lineWidth = 2;
+    ctx.lineWidth   = 2;
     ctx.beginPath();
     ctx.roundRect(sx, sy, 44, 44, 3);
     ctx.fill(); ctx.stroke();
 
-    // クールダウンリング
     const progress = 1 - Math.min(s.skillTimers[i] / (master?.fireRate || 1000), 1);
     if (progress > 0) {
       ctx.save();
@@ -421,17 +491,15 @@ function _drawHUD(ctx, canvas, s) {
       ctx.lineWidth   = 3;
       ctx.lineCap     = 'round';
       ctx.beginPath();
-      ctx.arc(sx + 22, sy + 22, 19, -Math.PI / 2, -Math.PI / 2 + (1 - progress) * Math.PI * 2);
+      ctx.arc(sx + 22, sy + 22, 19, -Math.PI/2, -Math.PI/2 + (1-progress)*Math.PI*2);
       ctx.stroke();
       ctx.restore();
     }
 
-    // アイコン
     ctx.font      = '24px serif';
     ctx.textAlign = 'center';
     ctx.fillText(master?.icon || '?', sx + 22, sy + 30);
 
-    // グレード
     ctx.save();
     ctx.font      = '7px "Press Start 2P", monospace';
     ctx.textAlign = 'center';
@@ -444,18 +512,13 @@ function _drawHUD(ctx, canvas, s) {
 // ---- ゲームオーバー処理 ----
 
 async function _handleGameOver(s) {
-  // 少し待ってからゲームオーバー画面へ
   await new Promise(r => setTimeout(r, 800));
 
   const user = getCurrentUser();
   if (user) {
     try {
-      await saveScore(user.token, {
-        score:      s.score,
-        equip:      s.equip,
-        totalKills: s.kills,
-      });
-    } catch (_) { /* オフライン時は無視 */ }
+      await saveScore(user.token, { score: s.score, equip: s.equip, totalKills: s.kills });
+    } catch (_) {}
   }
 
   router.go('gameover', {
@@ -476,16 +539,14 @@ function _resizeCanvas(canvas) {
 // ---- 入力バインド ----
 
 function _bindInput(s) {
-  // キーボード (Enter / Space)
   const onKey = (e) => {
     if (e.code === 'Enter' || e.code === 'Space') {
       e.preventDefault();
       jump(s.player);
     }
   };
-  document.addEventListener('keydown', onKey, { once: false });
+  document.addEventListener('keydown', onKey);
 
-  // タッチ（touchstart で遅延ゼロ）
   const onTouch = (e) => {
     e.preventDefault();
     jump(s.player);
@@ -493,7 +554,6 @@ function _bindInput(s) {
   document.getElementById('screen-game')
     .addEventListener('touchstart', onTouch, { passive: false });
 
-  // クリーンアップ用に参照を保持
   s._cleanup = () => {
     document.removeEventListener('keydown', onKey);
     document.getElementById('screen-game')
