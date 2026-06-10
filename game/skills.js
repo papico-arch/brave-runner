@@ -41,16 +41,16 @@ export const SKILL_MASTER = [
 
   // --- タイプC: 範囲攻撃・中頻度 ---
   { id: 'bomb',     name: 'メテオボム', type: SKILL_TYPES.AREA, icon: '💥',
-    baseDamage: 3.0, fireRate: 1200, color: '#ef9f27', width: 22, height: 22, radius: 60,
+    baseDamage: 3.0, fireRate: 1200, color: '#ef9f27', width: 80, height: 80, radius: 160,
     desc: '爆発範囲攻撃' },
   { id: 'flame',    name: 'フレイムウェーブ', type: SKILL_TYPES.AREA, icon: '🔥',
-    baseDamage: 2.5, fireRate: 1000, color: '#ff7043', width: 40, height: 16, radius: 50,
+    baseDamage: 2.5, fireRate: 1000, color: '#ff7043', width: 140, height: 50, radius: 160,
     desc: '炎の波動' },
   { id: 'ice',      name: 'ブリザードリング', type: SKILL_TYPES.AREA, icon: '❄️',
-    baseDamage: 2.0, fireRate: 900, color: '#b3e5fc', width: 30, height: 30, radius: 55,
+    baseDamage: 2.0, fireRate: 900, color: '#b3e5fc', width: 100, height: 100, radius: 160,
     desc: '氷結範囲' },
   { id: 'quake',    name: 'アースクエイク', type: SKILL_TYPES.AREA, icon: '🌍',
-    baseDamage: 3.5, fireRate: 1400, color: '#a5d6a7', width: 50, height: 12, radius: 80,
+    baseDamage: 3.5, fireRate: 1400, color: '#a5d6a7', width: 160, height: 40, radius: 200,
     desc: '地震波' },
 ];
 
