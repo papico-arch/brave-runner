@@ -24,14 +24,16 @@ export function createPlayer(canvas) {
   };
 }
 
-export function updatePlayer(p) {
+// customGroundY: 落とし穴の上では canvas.height+100 を渡して落下させる
+export function updatePlayer(p, customGroundY) {
+  const effectiveGroundY = customGroundY ?? p.groundY;
   p.vy += GRAVITY;
   p.y  += p.vy;
 
-  if (p.y >= p.groundY) {
-    p.y       = p.groundY;
-    p.vy      = 0;
-    p.jumps   = 0;
+  if (p.y >= effectiveGroundY) {
+    p.y        = effectiveGroundY;
+    p.vy       = 0;
+    p.jumps    = 0;
     p.onGround = true;
   } else {
     p.onGround = false;
