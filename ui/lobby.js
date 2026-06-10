@@ -236,12 +236,14 @@ function _renderEquipSlots() {
       </div>`;
     }
     const evoStars = '★'.repeat(slot.evo || 0) + '☆'.repeat(2 - (slot.evo || 0));
-    const gradeClass = slot.grade >= 80 ? 'gold' : slot.grade >= 50 ? 'silver' : 'bronze';
+    const gradeClass = slot.grade >= 85 ? 'rainbow' : slot.grade >= 50 ? 'gold' : 'silver';
+    const typeLabel = slot.type === 'heavy' ? '高威力タイプ' : slot.type === 'rapid' ? '連射タイプ' : '範囲攻撃タイプ';
     const evolveAvail = canEvolve(slot);
     return `<div class="skill-slot-lobby">
       <div class="icon">${slot.icon || '?'}</div>
       <div class="info">
         <div class="name">${slot.name}</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px">${typeLabel}</div>
         <span class="grade-badge ${gradeClass}">Grade ${slot.grade}</span>
         <div class="evo-status">${evoStars} ${slot.kills || 0}体撃破</div>
       </div>
