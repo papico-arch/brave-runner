@@ -11,13 +11,6 @@ export const router = {
     const el = document.getElementById(`screen-${name}`);
     if (el) el.classList.add('active');
 
-    const overlay = document.getElementById('orientation-overlay');
-    if (name === 'game') {
-      overlay.classList.add('game-active');
-    } else {
-      overlay.classList.remove('game-active');
-    }
-
     current = name;
     if (handlers[name]) handlers[name](params);
   },
